@@ -7,9 +7,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class App {
     public static void main(String[] args) throws InterruptedException {
-        AtomicBoolean closeFlag = new AtomicBoolean();
-        Thread prodThread = new Thread(new Producer(closeFlag));
-        Thread consThread = new Thread(new Consumer(closeFlag));
+        AtomicBoolean prodCloseFlag = new AtomicBoolean();
+        Thread prodThread = new Thread(new Producer(prodCloseFlag));
+        Thread consThread = new Thread(new Consumer(prodCloseFlag));
         prodThread.start();
         consThread.start();
         prodThread.join();

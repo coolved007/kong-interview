@@ -2,8 +2,8 @@ package com.kong.konnect.service.consumer;
 
 import com.kong.konnect.config.Params;
 import com.kong.konnect.model.CDCEventModel;
-import com.kong.konnect.util.PropertiesHelper;
 import com.kong.konnect.util.JsonSerDeHelper;
+import com.kong.konnect.util.PropertiesHelper;
 import org.apache.http.HttpHost;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class Consumer implements Runnable{
     private final KafkaConsumer<String, String> consumer;
@@ -69,7 +70,13 @@ public class Consumer implements Runnable{
 
         if (bulkResponse.errors()) {
             System.err.println("Some documents failed to index:");
-            System.err.println(bulkResponse.items());
+            System.err.println(bulkResponse.items().stream().
+                    filter(rec -> rec.error() != null)
+                    .map(rec -> String.format("[Doc ID: %s, Error: %s]", rec.id(), rec.error().reason()))
+                    .collect(Collectors.toList()));
+            /*
+            * If errors are retryable, we should retry else send to Error queue to investigate later
+            */
         } else {
             System.out.printf("%d documents indexed successfully.", records.count());
             System.out.println();
@@ -100,7 +107,7 @@ public class Consumer implements Runnable{
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
-        }finally {
+        } finally {
             try {
                 this.restClient.close();
             } catch (IOException e) {
