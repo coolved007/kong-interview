@@ -3,7 +3,7 @@ package com.kong.konnect.service.producer;
 import com.kong.konnect.config.Params;
 import com.kong.konnect.model.CDCEventModel;
 import com.kong.konnect.util.PropertiesHelper;
-import com.kong.konnect.util.SerDeHelper;
+import com.kong.konnect.util.JsonSerDeHelper;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
@@ -37,7 +37,7 @@ public class Producer implements Runnable{
                 Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResourceAsStream(Params.CDC_INPUT_FILE_NAME))))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                CDCEventModel cdcEvent = SerDeHelper.deserialize(line, CDCEventModel.class);
+                CDCEventModel cdcEvent = JsonSerDeHelper.deserialize(line, CDCEventModel.class);
                 this.sendMessage(topic, cdcEvent.getId(), line);
                 Thread.sleep(10);
             }

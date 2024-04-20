@@ -3,7 +3,7 @@ package com.kong.konnect.service.consumer;
 import com.kong.konnect.config.Params;
 import com.kong.konnect.model.CDCEventModel;
 import com.kong.konnect.util.PropertiesHelper;
-import com.kong.konnect.util.SerDeHelper;
+import com.kong.konnect.util.JsonSerDeHelper;
 import org.apache.http.HttpHost;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -27,13 +27,13 @@ public class Consumer implements Runnable{
     private final Properties props;
     private final RestClient restClient;
     private final OpenSearchClient client;
-    private final AtomicBoolean isClosed;
+    private final AtomicBoolean isProdClosed;
     private final String esIndexName;
 
     public Consumer(AtomicBoolean closed) {
         this.props = PropertiesHelper.getProperties();
         this.consumer = new KafkaConsumer<>(this.props);
-        this.isClosed = closed;
+        this.isProdClosed = closed;
         String esHost = this.props.getProperty(Params.ES_HOST);
         int esPort = Integer.parseInt(this.props.getProperty(Params.ES_PORT));
         this.restClient = RestClient.builder(new HttpHost(esHost, esPort)).build();
@@ -46,7 +46,7 @@ public class Consumer implements Runnable{
     public void processMessages(ConsumerRecords<String, String> records) throws IOException {
         BulkRequest.Builder bulkReqBuilder = new BulkRequest.Builder();
         for (ConsumerRecord<String, String> record: records) {
-            CDCEventModel cdcEvent = SerDeHelper.deserialize(record.value(), CDCEventModel.class);
+            CDCEventModel cdcEvent = JsonSerDeHelper.deserialize(record.value(), CDCEventModel.class);
             switch (cdcEvent.getOp()) {
                 case "c":
                     bulkReqBuilder.operations(
@@ -71,7 +71,8 @@ public class Consumer implements Runnable{
             System.err.println("Some documents failed to index:");
             System.err.println(bulkResponse.items());
         } else {
-            System.out.println("All documents indexed successfully.");
+            System.out.printf("%d documents indexed successfully.", records.count());
+            System.out.println();
         }
     }
 
@@ -82,19 +83,29 @@ public class Consumer implements Runnable{
         try {
             while (true) {
                 ConsumerRecords<String, String> records = this.consumer.poll(Duration.ofMillis(1000));
-                System.out.println(records.count());
                 if (records.isEmpty()) {
-                    if (this.isClosed.get())  // if producer thread is done, try to auto close consumer
+                    /*
+                    * Aim: if producer thread is done, try to auto close consumer
+                    * Commented out for now: This exits in case kafka consumer group is getting rebalanced and by that time producer is finished
+                    * Impact: Consumer will infinitely run unless application exits
+                    * Future: Can use ConsumerRebalanceListener to listen to those events
+
+                    if (this.isProdClosed.get())
                         break;
+                     */
                     continue;
                 }
                 this.processMessages(records);
                 this.consumer.commitSync();
             }
-            this.restClient.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }finally {
+            try {
+                this.restClient.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             this.consumer.close();
         }
     }
