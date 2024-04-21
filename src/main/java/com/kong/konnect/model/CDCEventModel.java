@@ -59,8 +59,9 @@ public class CDCEventModel {
         if (after == null) {
             return before.getId();
         }
-        return after.getValue() != null && after.getValue().getObject().getId() != null ?
-                after.getValue().getObject().getId() : after.getKey();
+        String id;
+        return after.getValue() != null && (id = after.getValue().getObject().getId()) != null ?
+                id : after.getKey();
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

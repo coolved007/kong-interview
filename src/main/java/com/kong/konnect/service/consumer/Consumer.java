@@ -61,7 +61,7 @@ public class Consumer implements Runnable{
                     break;
                 case "d":
                     bulkReqBuilder.operations(
-                            new BulkOperation.Builder().delete(d ->  d.id(cdcEvent.getId()))
+                            new BulkOperation.Builder().delete(d ->  d.index(this.esIndexName).id(cdcEvent.getId()))
                                     .build());
                     break;
             }
